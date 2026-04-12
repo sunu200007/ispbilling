@@ -42,56 +42,61 @@ class PelangganController extends Controller
     }
 
     public function store(Request $request)
-    {
-        $request->validate([
-            'nama'               => 'required|string|max:100',
-            'username'           => 'required|string|max:50|unique:pelanggan',
-            'password'           => 'required|string|min:6',
-            'no_hp'              => 'nullable|string|max:20',
-            'alamat'             => 'nullable|string',
-            'paket_id'           => 'required|exists:paket,id',
-            'ip_pool_id'         => 'required|exists:ip_pool,id',
-            'odp_id'             => 'required|exists:odp,id',
-            'latitude'           => 'nullable|numeric',
-            'longitude'          => 'nullable|numeric',
-            'tanggal_aktif'      => 'required|date',
-            'tanggal_jatuh_tempo'=> 'required|date',
-            'status'             => 'required|in:aktif,nonaktif,isolir',
+{
+    $request->validate([
+        'nama'                => 'required|string|max:100',
+        'username'            => 'required|string|max:50|unique:pelanggan',
+        'password'            => 'required|string|min:6',
+        'no_hp'               => 'nullable|string|max:20',
+        'alamat'              => 'nullable|string',
+        'paket_id'            => 'required|exists:paket,id',
+        'ip_pool_id'          => 'required|exists:ip_pool,id',
+        'odp_id'              => 'required|exists:odp,id',
+        'latitude'            => 'nullable|numeric',
+        'longitude'           => 'nullable|numeric',
+        'tanggal_aktif'       => 'required|date',
+        'tanggal_jatuh_tempo' => 'required|date',
+        'status'              => 'required|in:aktif,nonaktif,isolir',
+    ]);
+
+    $pool = IpPool::findOrFail($request->ip_pool_id);
+
+    if ($pool->is_penuh) {
+        return back()->withErrors(['ip_pool_id' => 'Pool sudah penuh, pilih pool lain.'])->withInput();
+    }
+
+    $ipAddress = $pool->getAvailableIp();
+    if (!$ipAddress) {
+        return back()->withErrors(['ip_pool_id' => 'Tidak ada IP tersedia di pool ini.'])->withInput();
+    }
+
+    DB::transaction(function () use ($request, $pool, $ipAddress) {
+        $pelanggan = Pelanggan::create([
+            'nama'                => $request->nama,
+            'username'            => $request->username,
+            'password'            => Hash::make($request->password),
+            'no_hp'               => $request->no_hp,
+            'alamat'              => $request->alamat,
+            'paket_id'            => $request->paket_id,
+            'ip_pool_id'          => $request->ip_pool_id,
+            'ip_address'          => $ipAddress,
+            'odp_id'              => $request->odp_id,
+            'latitude'            => $request->latitude,
+            'longitude'           => $request->longitude,
+            'tanggal_aktif'       => $request->tanggal_aktif,
+            'tanggal_jatuh_tempo' => $request->tanggal_jatuh_tempo,
+            'status'              => $request->status,
         ]);
 
-        $pool = IpPool::findOrFail($request->ip_pool_id);
-        if ($pool->is_penuh) {
-            return back()->withErrors(['ip_pool_id' => 'Pool sudah penuh, pilih pool lain.'])->withInput();
+        $this->syncRadiusAdd($pelanggan, $request->password, $pool);
+
+        if ($pool->fresh()->is_penuh) {
+            $pool->update(['status' => 'penuh']);
         }
+    });
 
-        DB::transaction(function () use ($request, $pool) {
-            $pelanggan = Pelanggan::create([
-                'nama'                => $request->nama,
-                'username'            => $request->username,
-                'password'            => Hash::make($request->password),
-                'no_hp'               => $request->no_hp,
-                'alamat'              => $request->alamat,
-                'paket_id'            => $request->paket_id,
-                'ip_pool_id'          => $request->ip_pool_id,
-                'odp_id'              => $request->odp_id,
-                'latitude'            => $request->latitude,
-                'longitude'           => $request->longitude,
-                'tanggal_aktif'       => $request->tanggal_aktif,
-                'tanggal_jatuh_tempo' => $request->tanggal_jatuh_tempo,
-                'status'              => $request->status,
-            ]);
-
-            // Sync ke RADIUS
-            $this->syncRadiusAdd($pelanggan, $request->password, $pool);
-
-            // Update status pool jika penuh
-            if ($pool->fresh()->is_penuh) {
-                $pool->update(['status' => 'penuh']);
-            }
-        });
-
-        return redirect()->route('pelanggan.index')->with('success', 'Pelanggan berhasil ditambahkan.');
-    }
+    return redirect()->route('pelanggan.index')->with('success', 'Pelanggan berhasil ditambahkan.');
+}
 
     public function show(Pelanggan $pelanggan)
     {
@@ -174,17 +179,14 @@ class PelangganController extends Controller
 
     private function syncRadiusAdd(Pelanggan $pelanggan, string $plainPassword, IpPool $pool)
     {
-        // radcheck — username & password
         DB::connection('radius')->table('radcheck')->insert([
             ['username' => $pelanggan->username, 'attribute' => 'Cleartext-Password', 'op' => ':=', 'value' => $plainPassword],
         ]);
 
-        // radreply — Pool-Name
         DB::connection('radius')->table('radreply')->insert([
-            ['username' => $pelanggan->username, 'attribute' => 'Pool-Name', 'op' => ':=', 'value' => $pool->nama_pool],
+            ['username' => $pelanggan->username, 'attribute' => 'Framed-IP-Address', 'op' => ':=', 'value' => $pelanggan->ip_address],
         ]);
 
-        // radusergroup — group berdasarkan paket
         DB::connection('radius')->table('radusergroup')->insert([
             ['username' => $pelanggan->username, 'groupname' => 'paket-'.$pelanggan->paket_id, 'priority' => 1],
         ]);

@@ -31,4 +31,23 @@ class IpPool extends Model
     {
         return $this->terpakai >= $this->kapasitas;
     }
+
+    public function getAvailableIp(): ?string
+    {
+        $usedIps = Pelanggan::where('ip_pool_id', $this->id)
+            ->whereNotNull('ip_address')
+            ->pluck('ip_address')
+            ->toArray();
+
+        $ipLong   = ip2long($this->network);
+        $jumlahIp = (int) pow(2, 32 - $this->prefix);
+
+        for ($i = 0; $i < $jumlahIp; $i++) {
+            $ip = long2ip($ipLong + $i);
+            if (!in_array($ip, $usedIps)) {
+                return $ip;
+            }
+        }
+        return null;
+    }
 }

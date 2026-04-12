@@ -7,8 +7,9 @@ class Pelanggan extends Model
     protected $table = 'pelanggan';
     protected $fillable = [
         'nama', 'username', 'password', 'no_hp', 'alamat',
-        'paket_id', 'odp_id', 'latitude', 'longitude',
-        'status', 'tanggal_aktif', 'tanggal_jatuh_tempo'
+        'paket_id', 'ip_pool_id', 'ip_address', 'odp_id',
+        'latitude', 'longitude', 'status',
+        'tanggal_aktif', 'tanggal_jatuh_tempo'
     ];
 
     protected $hidden = ['password'];
@@ -20,7 +21,7 @@ class Pelanggan extends Model
 
     public function ipPool()
     {
-        return $this->belongsTo(IpPool::class);
+        return $this->belongsTo(IpPool::class, 'ip_pool_id');
     }
 
     public function odp()

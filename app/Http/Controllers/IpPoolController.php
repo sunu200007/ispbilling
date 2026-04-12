@@ -33,18 +33,45 @@ class IpPoolController extends Controller
         $urutan    = IpPool::where('paket_id', $request->paket_id)->count() + 1;
         $namaPool  = 'pool-' . str()->slug($paket->nama_paket) . '-' . $urutan;
 
-        IpPool::create([
-            'paket_id'  => $request->paket_id,
-            'nama_pool' => $namaPool,
-            'network'   => $request->network,
-            'prefix'    => $request->prefix,
-            'ip_start'  => $ips['start'],
-            'ip_end'    => $ips['end'],
-            'kapasitas' => $kapasitas,
-            'status'    => 'aktif',
-        ]);
+        DB::transaction(function () use ($request, $namaPool, $kapasitas, $ips, $paket) {
+            $pool = IpPool::create([
+                'paket_id'  => $request->paket_id,
+                'nama_pool' => $namaPool,
+                'network'   => $request->network,
+                'prefix'    => $request->prefix,
+                'ip_start'  => $ips['start'],
+                'ip_end'    => $ips['end'],
+                'kapasitas' => $kapasitas,
+                'status'    => 'aktif',
+            ]);
 
-        return redirect()->route('ip-pool.index')->with('success', 'IP Pool berhasil ditambahkan.');
+            // Populate radippool dengan semua IP dalam range
+            $this->populateRadippool($namaPool, $request->network, $request->prefix);
+        });
+
+        return redirect()->route('ip-pool.index')->with('success', 'IP Pool berhasil ditambahkan dan IP telah dipopulate ke RADIUS.');
+    }
+
+    private function populateRadippool(string $namaPool, string $network, int $prefix)
+    {
+        $ipLong   = ip2long($network);
+        $jumlahIp = (int) pow(2, 32 - $prefix);
+        $records  = [];
+
+        for ($i = 0; $i < $jumlahIp; $i++) {
+            $records[] = [
+                'pool_name'       => $namaPool,
+                'framedipaddress' => long2ip($ipLong + $i),
+                'nasipaddress'    => '',
+                'calledstationid' => '',
+                'callingstationid'=> '',
+                'expiry_time'     => null,
+                'username'        => '',
+                'pool_key'        => '',
+            ];
+        }
+
+        DB::connection('radius')->table('radippool')->insert($records);
     }
 
     public function destroy(IpPool $ipPool)
@@ -52,7 +79,14 @@ class IpPoolController extends Controller
         if ($ipPool->terpakai > 0) {
             return back()->with('error', 'Pool tidak bisa dihapus, masih ada pelanggan aktif.');
         }
-        $ipPool->delete();
+
+        DB::transaction(function () use ($ipPool) {
+            DB::connection('radius')->table('radippool')
+                ->where('pool_name', $ipPool->nama_pool)
+                ->delete();
+            $ipPool->delete();
+        });
+
         return redirect()->route('ip-pool.index')->with('success', 'IP Pool berhasil dihapus.');
     }
 
