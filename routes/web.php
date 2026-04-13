@@ -7,6 +7,7 @@ use App\Http\Controllers\IpPoolController;
 use App\Http\Controllers\OdcController;
 use App\Http\Controllers\OdpController;
 use App\Http\Controllers\PelangganController;
+use App\Http\Controllers\MapsController;
 
 
 Route::get('/', fn() => redirect()->route('login'));
@@ -22,6 +23,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('odp', OdpController::class)->except(['show']);
     Route::resource('pelanggan', PelangganController::class);
     Route::get('get-pools', [PelangganController::class, 'getPools'])->name('get.pools');
+    Route::get('maps', [MapsController::class, 'index'])->name('maps.index');
+    Route::get('maps/data', [MapsController::class, 'getData'])->name('maps.data');
 });
 
 Route::middleware('auth')->group(function () {

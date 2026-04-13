@@ -40,7 +40,7 @@
             <a href="{{ route('odp.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm {{ request()->routeIs('odp.*') ? 'bg-blue-600' : 'hover:bg-gray-700' }}">
                 ODP
             </a>
-            <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-gray-700">
+            <a href="{{ route('maps.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm {{ request()->routeIs('maps.*') ? 'bg-blue-600' : 'hover:bg-gray-700' }}">
                 Maps
             </a>
             <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-gray-700">
