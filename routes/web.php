@@ -30,7 +30,8 @@ Route::middleware('auth')->group(function () {
     Route::post('invoice/{invoice}/bayar', [InvoiceController::class, 'bayar'])->name('invoice.bayar');
     Route::post('invoice/generate-bulk', [InvoiceController::class, 'generateBulk'])->name('invoice.generate-bulk');
     Route::post('invoice/update-overdue', [InvoiceController::class, 'updateOverdue'])->name('invoice.update-overdue');
-});
+    Route::post('pelanggan/{pelanggan}/expiration', [PelangganController::class, 'updateExpiration'])->name('pelanggan.expiration');
+    });
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');

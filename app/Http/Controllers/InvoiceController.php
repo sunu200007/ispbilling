@@ -67,13 +67,41 @@ class InvoiceController extends Controller
             'metode_bayar' => 'required|string',
         ]);
 
-        $invoice->update([
-            'status'       => 'paid',
-            'metode_bayar' => $request->metode_bayar,
-            'dibayar_at'   => now(),
-        ]);
+        DB::transaction(function () use ($request, $invoice) {
+            $invoice->update([
+                'status'       => 'paid',
+                'metode_bayar' => $request->metode_bayar,
+                'dibayar_at'   => now(),
+            ]);
 
-        return redirect()->route('invoice.index')->with('success', 'Invoice berhasil dibayar.');
+            // Perpanjang expiration 1 bulan
+            $pelanggan = $invoice->pelanggan;
+            $newExpiration = \Carbon\Carbon::parse($pelanggan->tanggal_jatuh_tempo)
+                ->addMonth()
+                ->format('Y-m-d');
+
+            $pelanggan->update(['tanggal_jatuh_tempo' => $newExpiration]);
+
+            // Sync ke RADIUS
+            $expiration = \Carbon\Carbon::parse($newExpiration)->format('d M Y H:i:s');
+            $exists = DB::connection('radius')->table('radcheck')
+                ->where('username', $pelanggan->username)
+                ->where('attribute', 'Expiration')
+                ->exists();
+
+            if ($exists) {
+                DB::connection('radius')->table('radcheck')
+                    ->where('username', $pelanggan->username)
+                    ->where('attribute', 'Expiration')
+                    ->update(['value' => $expiration]);
+            } else {
+                DB::connection('radius')->table('radcheck')->insert([
+                    ['username' => $pelanggan->username, 'attribute' => 'Expiration', 'op' => ':=', 'value' => $expiration],
+                ]);
+            }
+        });
+
+        return redirect()->route('invoice.index')->with('success', 'Invoice berhasil dibayar dan expiration diperpanjang 1 bulan.');
     }
 
     public function destroy(Invoice $invoice)

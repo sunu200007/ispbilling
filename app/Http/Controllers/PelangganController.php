@@ -179,8 +179,11 @@ class PelangganController extends Controller
 
     private function syncRadiusAdd(Pelanggan $pelanggan, string $plainPassword, IpPool $pool)
     {
+        $expiration = \Carbon\Carbon::parse($pelanggan->tanggal_jatuh_tempo)->format('d M Y H:i:s');
+
         DB::connection('radius')->table('radcheck')->insert([
             ['username' => $pelanggan->username, 'attribute' => 'Cleartext-Password', 'op' => ':=', 'value' => $plainPassword],
+            ['username' => $pelanggan->username, 'attribute' => 'Expiration', 'op' => ':=', 'value' => $expiration],
         ]);
 
         DB::connection('radius')->table('radreply')->insert([
@@ -227,5 +230,42 @@ class PelangganController extends Controller
         DB::connection('radius')->table('radcheck')->where('username', $username)->delete();
         DB::connection('radius')->table('radreply')->where('username', $username)->delete();
         DB::connection('radius')->table('radusergroup')->where('username', $username)->delete();
+    }
+
+    private function syncRadiusExpiration(string $username, string $tanggal)
+    {
+        $expiration = \Carbon\Carbon::parse($tanggal)->format('d M Y H:i:s');
+
+        $exists = DB::connection('radius')->table('radcheck')
+            ->where('username', $username)
+            ->where('attribute', 'Expiration')
+            ->exists();
+
+        if ($exists) {
+            DB::connection('radius')->table('radcheck')
+                ->where('username', $username)
+                ->where('attribute', 'Expiration')
+                ->update(['value' => $expiration]);
+        } else {
+            DB::connection('radius')->table('radcheck')->insert([
+                ['username' => $username, 'attribute' => 'Expiration', 'op' => ':=', 'value' => $expiration],
+            ]);
+        }
+    }
+
+    public function updateExpiration(Request $request, Pelanggan $pelanggan)
+    {
+        $request->validate([
+            'tanggal_jatuh_tempo' => 'required|date',
+        ]);
+
+        $pelanggan->update([
+            'tanggal_jatuh_tempo' => $request->tanggal_jatuh_tempo,
+        ]);
+
+        $this->syncRadiusExpiration($pelanggan->username, $request->tanggal_jatuh_tempo);
+
+        return redirect()->route('pelanggan.show', $pelanggan)
+            ->with('success', 'Expiration berhasil diupdate.');
     }
 }

@@ -39,16 +39,66 @@
                 <p class="text-sm text-gray-600">{{ $invoice->pelanggan->no_hp ?? '-' }}</p>
                 <p class="text-sm text-gray-600">{{ $invoice->pelanggan->alamat ?? '-' }}</p>
             </div>
+
             <div class="text-right">
                 <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Info Invoice</p>
-                <p class="text-sm text-gray-600">Tgl Invoice: <span class="text-gray-800">{{ \Carbon\Carbon::parse($invoice->tanggal_invoice)->format('d/m/Y') }}</span></p>
-                <p class="text-sm text-gray-600">Jatuh Tempo: <span class="text-gray-800">{{ \Carbon\Carbon::parse($invoice->tanggal_jatuh_tempo)->format('d/m/Y') }}</span></p>
+
+                {{-- Tanggal Invoice --}}
+                <p class="text-sm text-gray-600">
+                    Tgl Invoice:
+                    <span class="text-gray-800">
+                        {{ \Carbon\Carbon::parse($invoice->tanggal_invoice)->format('d/m/Y') }}
+                    </span>
+                </p>
+
+                {{-- ✅ EXPIRATION (EDITABLE) --}}
+                <div class="mt-2">
+                    <p class="text-sm text-gray-600">Expiration:</p>
+
+                    <div class="flex items-center justify-end gap-3">
+                        <span class="text-gray-800 text-sm">
+                            {{ \Carbon\Carbon::parse($invoice->pelanggan->tanggal_jatuh_tempo)->format('d M Y') }}
+                        </span>
+
+                        <button onclick="toggleEditExpiration()"
+                            class="text-xs text-blue-600 hover:underline">
+                            Edit
+                        </button>
+                    </div>
+
+                    <div id="form-expiration" style="display:none" class="mt-2">
+                        <form method="POST" action="{{ route('pelanggan.expiration', $invoice->pelanggan) }}" class="flex gap-2 justify-end">
+                            @csrf
+                            <input type="date" name="tanggal_jatuh_tempo"
+                                value="{{ $invoice->pelanggan->tanggal_jatuh_tempo }}"
+                                class="border border-gray-300 rounded-lg px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+                            <button type="submit"
+                                class="bg-blue-600 text-white text-xs px-3 py-1 rounded-lg hover:bg-blue-700">
+                                Simpan
+                            </button>
+
+                            <button type="button" onclick="toggleEditExpiration()"
+                                class="text-gray-500 text-xs px-3 py-1 rounded-lg border border-gray-300 hover:bg-gray-50">
+                                Batal
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                {{-- Dibayar --}}
                 @if($invoice->dibayar_at)
-                <p class="text-sm text-gray-600">Dibayar: <span class="text-gray-800">{{ \Carbon\Carbon::parse($invoice->dibayar_at)->format('d/m/Y H:i') }}</span></p>
+                <p class="text-sm text-gray-600 mt-2">
+                    Dibayar:
+                    <span class="text-gray-800">
+                        {{ \Carbon\Carbon::parse($invoice->dibayar_at)->format('d/m/Y H:i') }}
+                    </span>
+                </p>
                 @endif
             </div>
         </div>
 
+        {{-- TABLE --}}
         <table class="w-full text-sm mb-8">
             <thead>
                 <tr class="bg-gray-50">
@@ -79,10 +129,17 @@
             </tfoot>
         </table>
 
+        {{-- METODE BAYAR --}}
         @if($invoice->metode_bayar)
-        <p class="text-sm text-gray-500">Metode Bayar: <span class="text-gray-800 font-medium">{{ strtoupper($invoice->metode_bayar) }}</span></p>
+        <p class="text-sm text-gray-500">
+            Metode Bayar:
+            <span class="text-gray-800 font-medium">
+                {{ strtoupper($invoice->metode_bayar) }}
+            </span>
+        </p>
         @endif
 
+        {{-- BUTTON BAYAR --}}
         @if($invoice->status !== 'paid')
         <div class="mt-6 pt-6 border-t border-gray-100">
             <button onclick="openBayar()"
@@ -94,12 +151,14 @@
     </div>
 </div>
 
-{{-- Modal Bayar --}}
+{{-- MODAL BAYAR --}}
 <div id="modal-bayar" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:999;align-items:center;justify-content:center;">
     <div class="bg-white rounded-xl p-6 w-80">
         <h3 class="font-bold text-gray-800 mb-4">Konfirmasi Pembayaran</h3>
+
         <form method="POST" action="{{ route('invoice.bayar', $invoice) }}">
             @csrf
+
             <div class="mb-4">
                 <label class="block text-sm text-gray-600 mb-1">Metode Bayar</label>
                 <select name="metode_bayar"
@@ -110,11 +169,13 @@
                     <option value="va">Virtual Account</option>
                 </select>
             </div>
+
             <div class="flex gap-2">
                 <button type="submit"
                     class="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg transition">
                     Konfirmasi
                 </button>
+
                 <button type="button" onclick="closeBayar()"
                     class="flex-1 border border-gray-300 text-gray-600 text-sm py-2 rounded-lg hover:bg-gray-50 transition">
                     Batal
@@ -126,12 +187,19 @@
 
 @push('scripts')
 <script>
-    function openBayar() {
-        document.getElementById('modal-bayar').style.display = 'flex';
-    }
-    function closeBayar() {
-        document.getElementById('modal-bayar').style.display = 'none';
-    }
+function openBayar() {
+    document.getElementById('modal-bayar').style.display = 'flex';
+}
+
+function closeBayar() {
+    document.getElementById('modal-bayar').style.display = 'none';
+}
+
+function toggleEditExpiration() {
+    const form = document.getElementById('form-expiration');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
 </script>
 @endpush
+
 @endsection
