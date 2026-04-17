@@ -8,6 +8,7 @@ use App\Http\Controllers\OdcController;
 use App\Http\Controllers\OdpController;
 use App\Http\Controllers\PelangganController;
 use App\Http\Controllers\MapsController;
+use App\Http\Controllers\InvoiceController;
 
 
 Route::get('/', fn() => redirect()->route('login'));
@@ -25,6 +26,10 @@ Route::middleware('auth')->group(function () {
     Route::get('get-pools', [PelangganController::class, 'getPools'])->name('get.pools');
     Route::get('maps', [MapsController::class, 'index'])->name('maps.index');
     Route::get('maps/data', [MapsController::class, 'getData'])->name('maps.data');
+    Route::resource('invoice', InvoiceController::class)->except(['edit', 'update']);
+    Route::post('invoice/{invoice}/bayar', [InvoiceController::class, 'bayar'])->name('invoice.bayar');
+    Route::post('invoice/generate-bulk', [InvoiceController::class, 'generateBulk'])->name('invoice.generate-bulk');
+    Route::post('invoice/update-overdue', [InvoiceController::class, 'updateOverdue'])->name('invoice.update-overdue');
 });
 
 Route::middleware('auth')->group(function () {

@@ -25,9 +25,9 @@
             <a href="{{ route('pelanggan.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm {{ request()->routeIs('pelanggan.*') ? 'bg-blue-600' : 'hover:bg-gray-700' }}">
                 Pelanggan
             </a>
-            <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-gray-700">
-                Invoice
-            </a>
+	    <a href="{{ route('invoice.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm {{ request()->routeIs('invoice.*') ? 'bg-blue-600' : 'hover:bg-gray-700' }}">
+    	    	Invoice
+	    </a>
             <a href="{{ route('ip-pool.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm {{ request()->routeIs('ip-pool.*') ? 'bg-blue-600' : 'hover:bg-gray-700' }}">
                 IP Pool
             </a>
